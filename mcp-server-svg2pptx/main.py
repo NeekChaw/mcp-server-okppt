@@ -4,7 +4,7 @@ from typing import Optional, Union, List, Tuple
 import os
 import datetime
 import traceback
-from svg_module import insert_svg_to_pptx, to_emu, create_svg_file
+from svg_module import insert_svg_to_pptx, to_emu, create_svg_file, get_pptx_slide_count
 
 # 创建MCP服务器实例
 mcp = FastMCP(name="main")
@@ -27,7 +27,7 @@ def insert_svg(
     如果未提供PPTX路径，将自动创建一个临时文件。
     如果未提供输出路径，将覆盖原始文件。
     如果未提供坐标，默认对齐幻灯片左上角。
-    如果未提供宽度和高度，默认覆盖整个幻灯片。
+    如果未提供宽度和高度，默认覆盖整个幻灯片（16:9）。
 
     Args:
         pptx_path: PPTX文件路径，如果未提供则自动创建一个临时文件，最好使用英文路径
@@ -272,6 +272,50 @@ def convert_svg_to_png(
         return f"成功将SVG文件 {svg_path} 转换为PNG文件 {output_path}\n宽度: {drawing.width}px\n高度: {drawing.height}px"
     except Exception as e:
         return f"转换SVG到PNG时发生错误: {str(e)}"
+
+@mcp.tool()
+def get_pptx_info(pptx_path: str) -> str:
+    """
+    获取PPTX文件的基本信息，包括幻灯片数量。
+    
+    Args:
+        pptx_path: PPTX文件路径
+        
+    Returns:
+        包含文件信息和幻灯片数量的字符串
+    """
+    import os
+    
+    # 确保路径存在
+    if not os.path.isabs(pptx_path):
+        pptx_path = os.path.abspath(pptx_path)
+    
+    # 先获取基本文件信息
+    if not os.path.exists(pptx_path):
+        return f"错误：文件 {pptx_path} 不存在"
+    
+    size_bytes = os.path.getsize(pptx_path)
+    size_kb = size_bytes / 1024
+    size_mb = size_kb / 1024
+    
+    if size_mb >= 1:
+        size_str = f"{size_mb:.2f} MB"
+    else:
+        size_str = f"{size_kb:.2f} KB"
+    
+    modified_time = os.path.getmtime(pptx_path)
+    from datetime import datetime
+    modified_str = datetime.fromtimestamp(modified_time).strftime("%Y-%m-%d %H:%M:%S")
+    
+    # 获取幻灯片数量
+    slide_count, error = get_pptx_slide_count(pptx_path)
+    
+    if error:
+        slide_info = f"获取幻灯片数量失败：{error}"
+    else:
+        slide_info = f"幻灯片数量：{slide_count}张"
+    
+    return f"PPT文件: {pptx_path}\n大小: {size_str}\n修改时间: {modified_str}\n{slide_info}"
 
 # 启动服务器
 if __name__ == "__main__":

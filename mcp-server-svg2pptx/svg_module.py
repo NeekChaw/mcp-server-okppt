@@ -706,6 +706,38 @@ def insert_svg_to_pptx(
         except Exception as e:
             log_error(f"清理临时目录时出错: {e}")
 
+def get_pptx_slide_count(pptx_path: str) -> Tuple[int, str]:
+    """
+    获取PPTX文件中的幻灯片数量。
+    
+    Args:
+        pptx_path: PPTX文件路径
+        
+    Returns:
+        Tuple[int, str]: 返回(幻灯片数量, 错误信息)的元组。
+                       如果成功，错误信息为空字符串。
+                       如果失败，幻灯片数量为0，错误信息包含详细错误。
+    """
+    error_message = ""
+    
+    try:
+        # 规范化路径
+        pptx_path = normalize_path(pptx_path)
+        
+        # 检查文件是否存在
+        if not os.path.exists(pptx_path):
+            return 0, f"文件不存在: {pptx_path}"
+        
+        # 使用python-pptx库打开文件并获取幻灯片数量
+        from pptx import Presentation
+        prs = Presentation(pptx_path)
+        return len(prs.slides), ""
+        
+    except Exception as e:
+        error_trace = traceback.format_exc()
+        error_message = f"获取幻灯片数量时出错: {str(e)}\n{error_trace}"
+        return 0, error_message
+
 # --- 测试代码 ---
 if __name__ == '__main__':
     import datetime
