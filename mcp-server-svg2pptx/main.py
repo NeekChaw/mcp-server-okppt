@@ -4,6 +4,7 @@ from typing import Optional, Union, List, Tuple
 import os
 import datetime
 import traceback
+import re
 from svg_module import insert_svg_to_pptx, to_emu, create_svg_file, get_pptx_slide_count, save_svg_code_to_file
 
 # 创建MCP服务器实例
@@ -27,20 +28,54 @@ def get_output_dir():
     os.makedirs(output_dir, exist_ok=True)
     return output_dir
 
-def get_default_output_path(file_type="pptx", base_name=None):
+def cleanup_filename(filename: str) -> str:
+    """
+    清理文件名，移除所有旧的时间戳和操作类型标记
+    
+    Args:
+        filename: 要清理的文件名（不含路径和扩展名）
+        
+    Returns:
+        清理后的基本文件名
+    """
+    # 移除类似 _svg_20240101_120000, _deleted_20240529_153045 等操作标记和时间戳
+    # 模式: _ + 操作名 + _ + 8位日期 + _ + 6位时间
+    pattern = r'_(svg|deleted|inserted|output)_\d{8}_\d{6}'
+    cleaned = re.sub(pattern, '', filename)
+    
+    # 防止文件名连续处理后残留多余的下划线
+    cleaned = re.sub(r'_{2,}', '_', cleaned)
+    
+    # 移除末尾的下划线(如果有)
+    cleaned = cleaned.rstrip('_')
+    
+    return cleaned
+
+def get_default_output_path(file_type="pptx", base_name=None, op_type=None):
     """
     获取默认输出文件路径
     
     Args:
         file_type: 文件类型（扩展名）
         base_name: 基本文件名，如果为None则使用时间戳
+        op_type: 操作类型，用于在文件名中添加标记
     
     Returns:
         默认输出文件路径
     """
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    
     if base_name is None:
-        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
         base_name = f"output_{timestamp}"
+    else:
+        # 清理基本文件名
+        base_name = cleanup_filename(base_name)
+        
+        # 添加操作类型和时间戳
+        if op_type:
+            base_name = f"{base_name}_{op_type}_{timestamp}"
+        else:
+            base_name = f"{base_name}_{timestamp}"
     
     return os.path.join(get_output_dir(), f"{base_name}.{file_type}")
 
@@ -97,6 +132,7 @@ def insert_svg(
     if not output_path:
         # 从原始文件名生成输出文件名
         base_name = os.path.splitext(os.path.basename(pptx_path))[0]
+        base_name = cleanup_filename(base_name)
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
         output_path = os.path.join(get_output_dir(), f"{base_name}_svg_{timestamp}.pptx")
 
@@ -253,8 +289,10 @@ def process_single_svg(
     if not output_path:
         # 从原始文件名生成输出文件名
         base_name = os.path.splitext(os.path.basename(pptx_path))[0]
+        # 清理文件名
+        base_name = cleanup_filename(base_name)
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        output_path = os.path.join(get_output_dir(), f"{base_name}_output_{timestamp}.pptx")
+        output_path = os.path.join(get_output_dir(), f"{base_name}_svg_{timestamp}.pptx")
     
     try:
         # 调用改进后的函数，它现在返回一个元组 (成功标志, 错误消息)
@@ -465,7 +503,7 @@ def save_svg_code(
 ) -> str:
     """
     将SVG代码保存为SVG文件并返回保存的绝对路径。
-    
+    !!!注意：特殊字符如"&"需要转义为"&amp;"
     Args:
         svg_code: SVG代码内容
         
@@ -549,6 +587,8 @@ def delete_slide(
         if not output_path:
             # 从原始文件名生成输出文件名
             base_name = os.path.splitext(os.path.basename(pptx_path))[0]
+            # 清理文件名
+            base_name = cleanup_filename(base_name)
             timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
             output_path = os.path.join(get_output_dir(), f"{base_name}_deleted_{timestamp}.pptx")
             
@@ -656,6 +696,8 @@ def insert_blank_slide(
         if not output_path:
             # 从原始文件名生成输出文件名
             base_name = os.path.splitext(os.path.basename(pptx_path))[0]
+            # 清理文件名
+            base_name = cleanup_filename(base_name)
             timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
             output_path = os.path.join(get_output_dir(), f"{base_name}_inserted_{timestamp}.pptx")
             
