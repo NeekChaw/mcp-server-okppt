@@ -10,6 +10,7 @@ from typing import Optional, Union, Tuple, List
 import traceback
 import sys
 from io import StringIO
+import datetime
 
 # 定义命名空间
 ns = {
@@ -18,6 +19,30 @@ ns = {
     'r': "http://schemas.openxmlformats.org/officeDocument/2006/relationships",
     'asvg': "http://schemas.microsoft.com/office/drawing/2016/SVG/main"
 }
+
+# 路径辅助函数
+def get_base_dir():
+    """获取基础目录（服务器目录的父目录）"""
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    return os.path.dirname(current_dir)
+
+def get_tmp_dir():
+    """获取临时文件目录，如果不存在则创建"""
+    tmp_dir = os.path.join(get_base_dir(), "tmp")
+    os.makedirs(tmp_dir, exist_ok=True)
+    return tmp_dir
+
+def get_output_dir():
+    """获取输出文件目录，如果不存在则创建"""
+    output_dir = os.path.join(get_base_dir(), "output")
+    os.makedirs(output_dir, exist_ok=True)
+    return output_dir
+
+def create_temp_dir():
+    """创建唯一的临时目录并返回路径"""
+    temp_dir = os.path.join(get_tmp_dir(), f"pptx_{uuid.uuid4().hex}")
+    os.makedirs(temp_dir, exist_ok=True)
+    return temp_dir
 
 # 添加一个路径规范化函数
 def normalize_path(path: str) -> str:
@@ -66,6 +91,7 @@ def create_svg_file(svg_path: str, width: int = 100, height: int = 100, text: st
         svg_dir = os.path.dirname(svg_path)
         if svg_dir and not os.path.exists(svg_dir):
             os.makedirs(svg_dir, exist_ok=True)
+            print(f"已创建SVG目录: {svg_dir}")
             
         # 创建一个简单的SVG
         svg_content = (
@@ -84,6 +110,53 @@ def create_svg_file(svg_path: str, width: int = 100, height: int = 100, text: st
         print(f"创建SVG文件时出错: {e}")
         traceback.print_exc()
         return False
+
+def save_svg_code_to_file(
+    svg_code: str,
+    output_path: str = "",# 空字符串表示自动创建，否则使用绝对路径
+    create_dirs: bool = True
+) -> Tuple[bool, str, str]:
+    """
+    将SVG代码保存为SVG文件。
+
+    Args:
+        svg_code: SVG代码内容
+        output_path: 输出文件路径，如果未指定，则生成一个带有时间戳的文件名
+        create_dirs: 是否创建不存在的目录
+
+    Returns:
+        Tuple[bool, str, str]: (成功标志, 绝对路径, 错误消息)
+    """
+    try:
+        # 如果未提供输出路径，则生成一个带有时间戳的文件名
+        if not output_path or output_path == "":
+            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            output_path = os.path.join(get_output_dir(), f"svg_{timestamp}.svg")
+        
+        # 确保路径是绝对路径
+        if not os.path.isabs(output_path):
+            output_path = os.path.abspath(output_path)
+        
+        # 获取文件目录并确保存在
+        output_dir = os.path.dirname(output_path)
+        if output_dir and not os.path.exists(output_dir):
+            if create_dirs:
+                os.makedirs(output_dir, exist_ok=True)
+                print(f"已创建目录: {output_dir}")
+            else:
+                return False, "", f"目录 {output_dir} 不存在"
+        
+        # 保存SVG代码到文件
+        with open(output_path, "w", encoding="utf-8") as f:
+            f.write(svg_code)
+        
+        print(f"成功保存SVG代码到文件: {output_path}")
+        return True, output_path, ""
+    except Exception as e:
+        error_message = f"保存SVG代码到文件时出错: {e}"
+        print(error_message)
+        traceback.print_exc()
+        return False, "", error_message
 
 # EMU 单位转换辅助函数
 def to_emu(value: Union[Inches, Pt, Cm, Emu, int, float]) -> str:
@@ -206,6 +279,9 @@ def insert_svg_to_pptx(
         error_log.append(message)
         print(message)  # 仍然打印到控制台
 
+    # 创建临时目录 - 移到函数开始部分
+    temp_dir = create_temp_dir()
+
     # 规范化并转换为绝对路径
     pptx_path = normalize_path(pptx_path)
     svg_path = normalize_path(svg_path)
@@ -266,6 +342,7 @@ def insert_svg_to_pptx(
                 import time
                 time.sleep(0.5)
                 # 再次尝试解压
+                os.makedirs(temp_dir, exist_ok=True)  # 创建临时目录
                 with zipfile.ZipFile(pptx_path, 'r') as zip_ref:
                     zip_ref.extractall(temp_dir)
             except Exception as e:
@@ -367,8 +444,8 @@ def insert_svg_to_pptx(
 
     # 确定输出路径和创建临时目录
     output_path = output_path or pptx_path
-    temp_dir = "temp_pptx_" + str(uuid.uuid4())
-    os.makedirs(temp_dir)
+    # 临时目录已在函数开始部分创建，确保目录存在
+    os.makedirs(temp_dir, exist_ok=True)
 
     default_width_emu = None
     default_height_emu = None
