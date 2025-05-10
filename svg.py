@@ -53,7 +53,8 @@ def insert_svg_to_pptx(
     y: Optional[Union[Inches, Pt, Cm, Emu, int]] = None,
     width: Optional[Union[Inches, Pt, Cm, Emu, int]] = None,
     height: Optional[Union[Inches, Pt, Cm, Emu, int]] = None,
-    output_path: Optional[str] = None
+    output_path: Optional[str] = None,
+    create_if_not_exists: bool = True
 ) -> bool:
     """
     将 SVG 图像插入到 PPTX 文件指定幻灯片的指定位置。
@@ -72,7 +73,7 @@ def insert_svg_to_pptx(
     并将矢量 SVG 和 PNG 备用图都嵌入到 PPTX 文件中。
 
     Args:
-        pptx_path: 原始 PPTX 文件的路径。
+        pptx_path: 原始 PPTX 文件的路径。如果文件不存在且create_if_not_exists为True，将自动创建。
         svg_path: 要插入的 SVG 文件的路径。
         slide_number: 要插入 SVG 的目标幻灯片编号 (从 1 开始)。
         x: 图片左上角的 X 坐标 (可选, 使用 pptx.util 单位)。默认为 0。
@@ -81,12 +82,14 @@ def insert_svg_to_pptx(
         height: 图片的高度 (可选, 使用 pptx.util 单位)。默认为幻灯片高度。
                 如果只提供了 width 而未提供 height，将尝试根据 SVG 原始宽高比计算。
         output_path: 输出 PPTX 文件的路径。如果为 None，将覆盖原始文件。
+        create_if_not_exists: 如果为True且PPTX文件不存在，将自动创建一个新文件。
 
     Returns:
         bool: 如果成功插入则返回 True，否则返回 False。
 
     Raises:
-        FileNotFoundError: 如果 pptx_path 或 svg_path 无效。
+        FileNotFoundError: 如果 pptx_path 不存在且 create_if_not_exists 为 False。
+        FileNotFoundError: 如果 svg_path 无效。
         etree.XMLSyntaxError: 如果 PPTX 内部的 XML 文件损坏或格式错误。
         Exception: 其他潜在错误，如图库依赖问题或文件权限问题。
 
@@ -95,13 +98,83 @@ def insert_svg_to_pptx(
         - reportlab 和 svglib: 用于将 SVG 转换为 PNG。
         - python-pptx: 主要用于方便的单位转换 (Inches, Pt 等)。
     """
-    # 清单项目 3: 输入验证
+    # 转换为绝对路径
+    if not os.path.isabs(pptx_path):
+        pptx_path = os.path.abspath(pptx_path)
+    
+    if not os.path.isabs(svg_path):
+        svg_path = os.path.abspath(svg_path)
+    
+    if output_path and not os.path.isabs(output_path):
+        output_path = os.path.abspath(output_path)
+        
+    # 输入验证并自动创建PPTX（如果需要）
     if not os.path.exists(pptx_path):
-        raise FileNotFoundError(f"PPTX file not found: {pptx_path}")
+        if create_if_not_exists:
+            try:
+                from pptx import Presentation
+                prs = Presentation()
+                # 设置为16:9尺寸
+                prs.slide_width = Inches(16)
+                prs.slide_height = Inches(9)
+                # 添加一张空白幻灯片
+                blank_slide_layout = prs.slide_layouts[6]  # 6是空白幻灯片
+                slide = prs.slides.add_slide(blank_slide_layout)
+                prs.save(pptx_path)
+                print(f"自动创建PPTX文件: {pptx_path}")
+                # 给文件写入一些时间
+                import time
+                time.sleep(0.5)
+            except Exception as e:
+                print(f"创建PPTX文件时出错: {e}")
+                return False
+        else:
+            raise FileNotFoundError(f"PPTX file not found: {pptx_path}")
+    
+    # 检查PPTX文件是否至少有一张幻灯片，如果没有则添加一张
+    try:
+        from pptx import Presentation
+        prs = Presentation(pptx_path)
+        if len(prs.slides) == 0:
+            print(f"PPTX文件 {pptx_path} 没有幻灯片，添加一张空白幻灯片")
+            blank_slide_layout = prs.slide_layouts[6]  # 6是空白幻灯片
+            slide = prs.slides.add_slide(blank_slide_layout)
+            prs.save(pptx_path)
+            # 给文件写入一些时间
+            import time
+            time.sleep(0.5)
+    except Exception as e:
+        print(f"检查或添加幻灯片时出错: {e}")
+        # 如果是无效的PPTX文件，可能是因为文件损坏或不是PPTX格式
+        if "File is not a zip file" in str(e) or "document not found" in str(e):
+            print(f"PPTX文件 {pptx_path} 似乎不是有效的PowerPoint文件，尝试重新创建")
+            try:
+                # 重新创建一个新的PPTX文件
+                prs = Presentation()
+                prs.slide_width = Inches(16)
+                prs.slide_height = Inches(9)
+                blank_slide_layout = prs.slide_layouts[6]
+                slide = prs.slides.add_slide(blank_slide_layout)
+                prs.save(pptx_path)
+                print(f"已重新创建PPTX文件: {pptx_path}")
+                import time
+                time.sleep(0.5)
+            except Exception as e2:
+                print(f"重新创建PPTX文件时出错: {e2}")
+                return False
+        else:
+            # 其他类型的错误
+            return False
+    
+    # 确保文件存在且大小不为0
+    if not os.path.exists(pptx_path) or os.path.getsize(pptx_path) == 0:
+        print(f"错误：PPTX文件 {pptx_path} 不存在或大小为0")
+        return False
+    
     if not os.path.exists(svg_path):
         raise FileNotFoundError(f"SVG file not found: {svg_path}")
 
-    # 清单项目 2: 确定输出路径和创建临时目录
+    # 确定输出路径和创建临时目录
     output_path = output_path or pptx_path
     temp_dir = "temp_pptx_" + str(uuid.uuid4())
     os.makedirs(temp_dir)
@@ -110,9 +183,29 @@ def insert_svg_to_pptx(
     default_height_emu = None
 
     try:
-        # 清单项目 3: 解压 PPTX
-        with zipfile.ZipFile(pptx_path, 'r') as zip_ref:
-            zip_ref.extractall(temp_dir)
+        # 解压 PPTX
+        try:
+            with zipfile.ZipFile(pptx_path, 'r') as zip_ref:
+                zip_ref.extractall(temp_dir)
+        except zipfile.BadZipFile as e:
+            print(f"解压PPTX文件时出错: {e}")
+            print("尝试重新创建PPTX文件...")
+            # 创建一个新的PPTX文件并再次尝试
+            try:
+                prs = Presentation()
+                prs.slide_width = Inches(16)
+                prs.slide_height = Inches(9)
+                blank_slide_layout = prs.slide_layouts[6]
+                slide = prs.slides.add_slide(blank_slide_layout)
+                prs.save(pptx_path)
+                import time
+                time.sleep(0.5)
+                # 再次尝试解压
+                with zipfile.ZipFile(pptx_path, 'r') as zip_ref:
+                    zip_ref.extractall(temp_dir)
+            except Exception as e2:
+                print(f"重新创建和解压PPTX文件时出错: {e2}")
+                return False
 
         # --- 读取 presentation.xml 获取默认幻灯片尺寸 ---
         pres_path = os.path.join(temp_dir, "ppt", "presentation.xml")
@@ -404,24 +497,30 @@ def insert_svg_to_pptx(
 
 # --- 测试代码 ---
 if __name__ == '__main__':
-    # 测试用例：使用用户提供的 svg_test.pptx 和 media 目录下的 SVG
-    input_pptx = "svg_test.pptx"
-    # 确保测试文件存在
-    if not os.path.exists(input_pptx):
-         print(f"Error: Test input file '{input_pptx}' not found in the workspace root.")
-         # 可选：如果需要，可以自动创建
-         from pptx import Presentation
-         prs = Presentation()
-         # 设置为16:9尺寸以便与默认备用尺寸匹配
-         prs.slide_width = Inches(16)
-         prs.slide_height = Inches(9)
-         # 添加一张幻灯片，确保slide1.xml和相关关系文件存在
-         title_slide_layout = prs.slide_layouts[6]
-         slide = prs.slides.add_slide(title_slide_layout)
-         prs.save(input_pptx)
-         print(f"Created dummy file: {input_pptx} (16:9) with one slide")
-
-    svg_to_insert = "image2.svg"  # 修改为当前目录下的SVG文件
+    import datetime
+    import os
+    
+    # 获取当前工作目录的绝对路径
+    current_dir = os.path.abspath(os.getcwd())
+    
+    # 测试用例：使用绝对路径
+    input_pptx = os.path.join(current_dir, "svg_test.pptx")
+    
+    # 模拟pptx_path为空的情况
+    test_empty_path = True  # 将此设为True来测试空路径处理
+    if test_empty_path:
+        print("\n--- 测试空路径处理 ---")
+        input_pptx = ""  # 模拟空路径
+    
+    # 检查pptx_path是否为空，如果为空则创建默认路径
+    if not input_pptx or input_pptx.strip() == "":
+        # 创建一个基于时间戳的默认文件名
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        input_pptx = os.path.join(current_dir, f"presentation_{timestamp}.pptx")
+        print(f"未提供PPTX路径，将使用默认路径: {input_pptx}")
+    
+    # 创建一个示例SVG文件
+    svg_to_insert = os.path.join(current_dir, "image2.svg")  # 使用绝对路径
     if not os.path.exists(svg_to_insert):
         print(f"Error: Test SVG file not found: {svg_to_insert}")
         # 可以在这里添加创建虚拟 SVG 的逻辑（如果需要）
@@ -439,9 +538,9 @@ if __name__ == '__main__':
             print(f"Could not create dummy SVG: {e}")
 
     # --- 测试 1：指定尺寸和位置 --- (保持不变)
-    output_pptx_specific = "svg_test_output_specific.pptx"
+    output_pptx_specific = os.path.join(current_dir, "svg_test_output_specific.pptx")
     print(f"\n--- Test 1: Inserting with specific size and position ---")
-    if os.path.exists(input_pptx) and os.path.exists(svg_to_insert):
+    if os.path.exists(svg_to_insert):  # 只检查SVG存在，PPTX会自动创建
         success1 = insert_svg_to_pptx(
             pptx_path=input_pptx,
             svg_path=svg_to_insert,
@@ -450,37 +549,39 @@ if __name__ == '__main__':
             y=Inches(1),
             width=Inches(4),
             height=Inches(3),
-            output_path=output_pptx_specific
+            output_path=output_pptx_specific,
+            create_if_not_exists=True
         )
         if success1:
             print(f"SVG inserted with specific size/pos successfully into '{output_pptx_specific}'")
         else:
             print("Failed to insert SVG with specific size/pos.")
     else:
-        print("Skipping specific size test due to missing input files.")
+        print("Skipping specific size test due to missing SVG file.")
 
     # --- 测试 2：默认全屏插入 --- (新增)
-    output_pptx_fullscreen = "svg_test_output_fullscreen.pptx"
+    output_pptx_fullscreen = os.path.join(current_dir, "svg_test_output_fullscreen.pptx")
     print(f"\n--- Test 2: Inserting with default full-screen size ---")
-    if os.path.exists(input_pptx) and os.path.exists(svg_to_insert):
+    if os.path.exists(svg_to_insert):  # 只检查SVG存在，PPTX会自动创建
         success2 = insert_svg_to_pptx(
             pptx_path=input_pptx,
             svg_path=svg_to_insert,
             slide_number=1,
             # x, y, width, height 使用默认值 (None)
-            output_path=output_pptx_fullscreen
+            output_path=output_pptx_fullscreen,
+            create_if_not_exists=True
         )
         if success2:
             print(f"SVG inserted with default full-screen successfully into '{output_pptx_fullscreen}'")
         else:
             print("Failed to insert SVG with default full-screen.")
     else:
-        print("Skipping full-screen test due to missing input files.")
+        print("Skipping full-screen test due to missing SVG file.")
 
     # --- 测试 3：只指定宽度，高度自动计算 --- (新增)
-    output_pptx_autoheight = "svg_test_output_autoheight.pptx"
+    output_pptx_autoheight = os.path.join(current_dir, "svg_test_output_autoheight.pptx")
     print(f"\n--- Test 3: Inserting with specific width, auto height ---")
-    if os.path.exists(input_pptx) and os.path.exists(svg_to_insert):
+    if os.path.exists(svg_to_insert):  # 只检查SVG存在，PPTX会自动创建
         success3 = insert_svg_to_pptx(
             pptx_path=input_pptx,
             svg_path=svg_to_insert,
@@ -489,11 +590,12 @@ if __name__ == '__main__':
             y=Inches(0.5),
             width=Inches(5), # 指定宽度
             # height 使用默认值 (None)
-            output_path=output_pptx_autoheight
+            output_path=output_pptx_autoheight,
+            create_if_not_exists=True
         )
         if success3:
             print(f"SVG inserted with auto height successfully into '{output_pptx_autoheight}'")
         else:
             print("Failed to insert SVG with auto height.")
     else:
-        print("Skipping auto height test due to missing input files.")
+        print("Skipping auto height test due to missing SVG file.")
