@@ -50,11 +50,11 @@ def insert_svg(
     pptx_path: str,# 空字符串表示自动创建，否则使用绝对路径
     svg_path: List[str],# 数组，绝对路径
     slide_number: int = 1,
-    x_inches: Optional[float] = None,
-    y_inches: Optional[float] = None,
-    width_inches: Optional[float] = None,
-    height_inches: Optional[float] = None,
-    output_path: Optional[str] = None,# 空字符串表示自动创建，否则使用绝对路径
+    x_inches: float = 0,
+    y_inches: float = 0,
+    width_inches: float = 16,
+    height_inches: float = 9,
+    output_path: str = "",# 空字符串表示自动创建，否则使用绝对路径
     create_if_not_exists: bool = True
 ) -> str:
     """
@@ -220,10 +220,10 @@ def process_single_svg(
     pptx_path: str,
     svg_path: str,
     slide_number: int,
-    x: Optional[Union[Inches, Pt, Cm, Emu]],
-    y: Optional[Union[Inches, Pt, Cm, Emu]],
-    width: Optional[Union[Inches, Pt, Cm, Emu]],
-    height: Optional[Union[Inches, Pt, Cm, Emu]],
+    x: Optional[Union[Inches, Pt, Cm, Emu, float]],
+    y: Optional[Union[Inches, Pt, Cm, Emu, float]],
+    width: Optional[Union[Inches, Pt, Cm, Emu, float]],
+    height: Optional[Union[Inches, Pt, Cm, Emu, float]],
     output_path: Optional[str],
     create_if_not_exists: bool
 ) -> str:
