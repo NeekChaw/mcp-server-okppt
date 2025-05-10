@@ -256,18 +256,18 @@ def insert_svg_to_pptx(
                 # 设置为16:9尺寸
                 prs.slide_width = Inches(16)
                 prs.slide_height = Inches(9)
-                # 添加一张空白幻灯片
-                blank_slide_layout = prs.slide_layouts[6]  # 6是空白幻灯片
-                slide = prs.slides.add_slide(blank_slide_layout)
                 
-                # 再次确认目录存在
-                os.makedirs(os.path.dirname(pptx_path), exist_ok=True)
+                # 直接创建足够多的幻灯片
+                for i in range(slide_number):
+                    prs.slides.add_slide(prs.slide_layouts[6])  # 6是空白幻灯片
                 
                 prs.save(pptx_path)
-                log_error(f"自动创建PPTX文件: {pptx_path}")
-                # 给文件写入一些时间
+                log_error(f"已重新创建PPTX文件: {pptx_path}，包含{slide_number}张幻灯片")
                 import time
                 time.sleep(0.5)
+                # 再次尝试解压
+                with zipfile.ZipFile(pptx_path, 'r') as zip_ref:
+                    zip_ref.extractall(temp_dir)
             except Exception as e:
                 error_msg = f"创建PPTX文件时出错: {e}"
                 log_error(error_msg)
@@ -294,7 +294,27 @@ def insert_svg_to_pptx(
     try:
         from pptx import Presentation
         prs = Presentation(pptx_path)
-        if len(prs.slides) == 0:
+        
+        # 检查指定的slide_number是否超出现有幻灯片数量
+        if slide_number > len(prs.slides):
+            log_error(f"幻灯片编号{slide_number}超出现有幻灯片数量{len(prs.slides)}，将自动添加缺失的幻灯片")
+            # 获取空白幻灯片布局
+            blank_slide_layout = prs.slide_layouts[6]  # 6是空白幻灯片
+            
+            # 计算需要添加的幻灯片数量
+            slides_to_add = slide_number - len(prs.slides)
+            
+            # 循环添加所需数量的幻灯片
+            for _ in range(slides_to_add):
+                prs.slides.add_slide(blank_slide_layout)
+                log_error(f"已添加新的空白幻灯片，当前幻灯片数量: {len(prs.slides)}")
+            
+            # 保存文件
+            prs.save(pptx_path)
+            # 给文件写入一些时间
+            import time
+            time.sleep(0.5)
+        elif len(prs.slides) == 0:
             log_error(f"PPTX文件 {pptx_path} 没有幻灯片，添加一张空白幻灯片")
             blank_slide_layout = prs.slide_layouts[6]  # 6是空白幻灯片
             slide = prs.slides.add_slide(blank_slide_layout)
@@ -317,11 +337,13 @@ def insert_svg_to_pptx(
                 prs.slide_width = Inches(16)
                 prs.slide_height = Inches(9)
                 blank_slide_layout = prs.slide_layouts[6]
-                slide = prs.slides.add_slide(blank_slide_layout)
+                
+                # 直接创建足够多的幻灯片
+                for i in range(slide_number):
+                    prs.slides.add_slide(blank_slide_layout)
+                    
                 prs.save(pptx_path)
-                log_error(f"已重新创建PPTX文件: {pptx_path}")
-                import time
-                time.sleep(0.5)
+                log_error(f"已重新创建PPTX文件: {pptx_path}，包含{slide_number}张幻灯片")
             except Exception as e2:
                 error_msg = f"重新创建PPTX文件时出错: {e2}"
                 log_error(error_msg)
@@ -366,8 +388,13 @@ def insert_svg_to_pptx(
                 prs.slide_width = Inches(16)
                 prs.slide_height = Inches(9)
                 blank_slide_layout = prs.slide_layouts[6]
-                slide = prs.slides.add_slide(blank_slide_layout)
+                
+                # 直接创建足够多的幻灯片
+                for i in range(slide_number):
+                    prs.slides.add_slide(blank_slide_layout)
+                    
                 prs.save(pptx_path)
+                log_error(f"已重新创建PPTX文件: {pptx_path}，包含{slide_number}张幻灯片")
                 import time
                 time.sleep(0.5)
                 # 再次尝试解压
@@ -738,7 +765,7 @@ if __name__ == '__main__':
         success1, error_details1 = insert_svg_to_pptx(
             pptx_path=input_pptx,
             svg_path=svg_to_insert,
-            slide_number=1,
+            slide_number=3,
             x=Inches(1),
             y=Inches(1),
             width=Inches(4),
