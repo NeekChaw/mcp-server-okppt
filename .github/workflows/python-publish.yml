@@ -22,11 +22,15 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install setuptools wheel twine
+          pip install build setuptools wheel twine
       - name: Build and Publish package
+        working-directory: ./mcp-server-okppt
         env:
           TWINE_USERNAME: ${{ secrets.PYPI_USERNAME }}
           TWINE_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
         run: |
+            # 构建包
+            python -m build
+            # 检查并上传
             twine check dist/*
             twine upload dist/*
