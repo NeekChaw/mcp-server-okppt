@@ -1561,9 +1561,5 @@ if __name__ == "__main__":
     # 确保必要的目录存在
     tmp_dir = get_tmp_dir()
     output_dir = get_output_dir()
-    print(f"临时文件目录: {tmp_dir}")
-    print(f"输出文件目录: {output_dir}")
-    
-    # 启动MCP服务器
-    print("\n启动MCP服务器...")
+
     mcp.run() 

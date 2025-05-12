@@ -148,7 +148,7 @@ cli = [
 ]
 
 [[package]]
-name = "mcp-server-svg2pptx"
+name = "mcp-server-okppt"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
