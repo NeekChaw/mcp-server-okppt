@@ -1,11 +1,11 @@
-from mcp.server.fastmcp import FastMCP, Context
+from mcp.server.fastmcp import FastMCP
 from pptx.util import Inches, Pt, Cm, Emu
-from typing import Optional, Union, List, Tuple
+from typing import Optional, Union, List
 import os
 import datetime
 import traceback
 import re
-from svg_module import insert_svg_to_pptx, to_emu, create_svg_file, get_pptx_slide_count, save_svg_code_to_file
+from svg_module import insert_svg_to_pptx, create_svg_file, get_pptx_slide_count, save_svg_code_to_file
 
 # 创建MCP服务器实例
 mcp = FastMCP(name="main")
