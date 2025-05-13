@@ -6,7 +6,14 @@
 
 ## 设计理念
 
-此项目是让大型语言模型（如Claude、GPT等）能够自主设计PowerPoint演示文稿的"曲线救国"解决方案。通过让AI生成SVG图像，再借助本工具将其全屏插入PPT幻灯片，我们成功实现了AI完全控制PPT设计的能力，而无需直接操作复杂的PPT对象模型。这种方法充分发挥了现代AI的图形设计能力，同时避开了PPT编程的复杂性。
+此项目是让大型语言模型（如Claude、GPT等）能够自主设计PowerPoint演示文稿的"曲线救国"解决方案。通过让AI生成SVG图像，再借助本工具将其全屏插入PPT幻灯片，我们成功实现了AI完全控制PPT设计的能力，而无需直接操作复杂的PPT对象模型。
+
+这种方法带来三大核心优势：
+1. **AI完全控制**：充分发挥现代AI的图形设计能力，同时避开PPT编程的复杂性
+2. **用户可编辑**：Office PowerPoint提供了强大的SVG编辑功能，插入后的SVG元素可以像原生PPT元素一样直接编辑、调整和重新着色，让用户能轻松地在AI生成基础上进行二次修改
+3. **矢量级质量**：保持高品质可缩放的矢量特性，确保演示内容在任何尺寸下都清晰锐利
+
+这一创新思路通过SVG作为AI与PPT之间的桥梁，既保证了设计的高度自由，又兼顾了最终成果的实用性和可维护性。
 
 ## 功能特点
 
@@ -44,14 +51,41 @@ uv pip install mcp-server-okppt
     "okppt": {
       "command": "uvx",
       "args": [
-        "mcp-okppt"
+        "mcp-server-okppt"
       ]
     }
   }
 }
 ```
 
-### 方法三：从源代码安装
+### 方法三：配置Cursor本地开发环境
+
+在Cursor IDE中，可以通过本地配置文件来设置MCP服务器：
+
+**Windows**: `C:\Users\用户名\.cursor\mcp.json`  
+**macOS**: `~/.cursor/mcp.json`
+
+添加以下配置：
+
+```json
+{
+  "mcpServers": {
+    "okppt": {
+      "command": "uv",
+      "args": [
+        "--directory",
+        "D:\\本地项目路径\\mcp-server-okppt",
+        "run",
+        "main.py"
+      ]
+    }
+  }
+}
+```
+
+这种配置方式适合本地开发和测试使用，可以直接指向本地代码目录。
+
+### 方法四：从源代码安装
 
 ```bash
 # 克隆仓库
