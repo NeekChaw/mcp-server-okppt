@@ -1,0 +1,6 @@
+mcp[cli]>=1.8.0
+lxml>=4.9.2
+python-pptx>=0.6.21
+reportlab>=4.0.0
+svglib>=1.5.1
+rlPyCairo>=0.1.0

@@ -5,7 +5,10 @@ import os
 import datetime
 import traceback
 import re
-from svg_module import insert_svg_to_pptx, create_svg_file, get_pptx_slide_count, save_svg_code_to_file
+# 修改导入路径以适应新的包结构
+
+    # 作为已安装的包导入
+from mcp_server_okppt.svg_module import insert_svg_to_pptx, create_svg_file, get_pptx_slide_count, save_svg_code_to_file
 
 # 创建MCP服务器实例
 mcp = FastMCP(name="main")

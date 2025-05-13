@@ -1,0 +1,2 @@
+[console_scripts]
+okppt-server = mcp_server_okppt:run_server
