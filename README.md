@@ -386,6 +386,10 @@ A: 这是因为每次操作都会添加时间戳。建议使用"新文件法"一
 
 查看所有版本和更新信息: [GitHub Releases](https://github.com/NeekChaw/mcp-server-okppt/releases)
 
+## 致谢
+
+本项目在开发过程中受益于[Model Context Protocol(MCP) 编程极速入门](https://github.com/liaokongVFX/MCP-Chinese-Getting-Started-Guide)这一优质资源。该项目提供了全面而清晰的MCP开发指南，涵盖了从基础概念到实际部署的各个方面，极大地降低了开发者学习MCP协议的门槛。特别感谢其在服务配置、工具开发和部署流程等方面的详细示例和说明，为MCP生态的发展和普及做出了宝贵贡献。推荐所有对MCP开发感兴趣的开发者参考这份指南，它将帮助你快速掌握MCP服务器的开发与配置技能。
+
 ## 贡献指南
 
 欢迎提交问题和拉取请求到[项目仓库](https://github.com/NeekChaw/mcp-server-okppt)！以下是一些潜在的改进方向：
