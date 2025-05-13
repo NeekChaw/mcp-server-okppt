@@ -1,6 +1,6 @@
 [project]
 name = "mcp-server-okppt"
-version = "0.1.1"
+version = "0.1.2"
 description = "A Python package to insert SVG images into PowerPoint presentations, with MCP server capabilities."
 authors = [
   { name="NeekChaw", email="your.email@example.com" },
@@ -18,6 +18,7 @@ dependencies = [
 
 [project.scripts]
 okppt-server = "mcp_server_okppt:run_server"
+mcp-server-okppt = "mcp_server_okppt:run_server"
 
 [project.urls]
 "Homepage" = "https://github.com/NeekChaw/mcp-server-okppt"
