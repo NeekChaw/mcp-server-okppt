@@ -1,3 +1,0 @@
-[console_scripts]
-mcp-server-okppt = mcp_server_okppt:run_server
-okppt-server = mcp_server_okppt:run_server

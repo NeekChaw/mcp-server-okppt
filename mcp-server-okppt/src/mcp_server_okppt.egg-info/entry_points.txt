@@ -1,0 +1,2 @@
+[console_scripts]
+mcp-server-okppt = mcp_server_okppt.cli:main
