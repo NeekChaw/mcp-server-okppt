@@ -1557,6 +1557,18 @@ def create_pptx_from_svg(
         error_trace = traceback.format_exc()
         return f"创建PPTX文件失败：{str(e)}\n\n{error_trace}"
 
+@mcp.prompt()
+def use_role_prompt(source: str) -> str:
+    """
+    使用角色提示。
+    主要用途：当用户希望大模型生成、优化ppt时，使用角色提示，让大模型生成16:9的svg代码，然后使用server-okppt的insert_svg工具将svg代码全屏插入ppt。
+    输入：
+        source: str, 用户希望大模型生成的ppt的结构。
+    输出：
+        str, 架构化提示词。
+    """
+    return f"请你分析、解构用户的ppt需求：{source}，如果需求不明确，你需要与用户逐步明确ppt风格、主题等设计细节，然后然后调用mcp_server_okppt工具为用户生成svg代码，最终将svg代码全屏插入ppt，实现ppt设计。"
+
 # 启动服务器
 if __name__ == "__main__":
     # 确保必要的目录存在

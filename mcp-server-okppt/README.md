@@ -368,7 +368,7 @@ A: 这是因为每次操作都会添加时间戳。建议使用"新文件法"一
 
 ## 版本信息
 
-当前最新版本: v0.1.3
+当前最新版本: v0.1.4
 
 查看所有版本和更新信息: [GitHub Releases](https://github.com/NeekChaw/mcp-server-okppt/releases)
 
