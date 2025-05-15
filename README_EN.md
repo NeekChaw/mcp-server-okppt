@@ -282,33 +282,6 @@ Copies a slide containing an SVG image.
 
 **Returns**: Operation result message
 
-### 10. Create PPTX from SVG (create_pptx_from_svg)
-
-```python
-def create_pptx_from_svg(
-    svg_paths: List[str],
-    pptx_path: str = "",
-    output_path: str = "",
-    width_inches: float = 16,
-    height_inches: float = 9,
-    x_inches: float = 0,
-    y_inches: float = 0
-) -> str
-```
-
-Creates a PPTX file directly from SVG files, with each SVG corresponding to one slide.
-
-**Parameters**:
-- `svg_paths`: List of SVG file paths
-- `pptx_path`: Initial PPTX file path
-- `output_path`: Output file path
-- `width_inches`: Image width (inches)
-- `height_inches`: Image height (inches)
-- `x_inches`: X coordinate (inches)
-- `y_inches`: Y coordinate (inches)
-
-**Returns**: Operation result message
-
 ## Best Practices
 
 ### Recommended Methods for Replacing Slide Content
@@ -339,16 +312,6 @@ insert_svg(
 )
 ```
 
-#### Method 2: New File Method (Suitable for Multi-Page Modifications)
-
-```python
-# Create a new PPTX file with all SVGs at once
-create_pptx_from_svg(
-    svg_paths=["page1.svg", "page2.svg", "modified_page3.svg", "page4.svg"],
-    output_path="new_presentation.pptx"
-)
-```
-
 ## Important Notes
 
 1. **Avoid Content Overlay**: Inserting SVGs directly into existing slides will cause new content to overlay the original content rather than replace it
@@ -370,7 +333,7 @@ A: This happens because each operation adds a timestamp. We recommend using the 
 
 ## Version Information
 
-Current latest version: v0.1.4
+Current latest version: v0.1.5
 
 View all versions and update information: [GitHub Releases](https://github.com/NeekChaw/mcp-server-okppt/releases)
 

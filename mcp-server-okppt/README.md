@@ -280,33 +280,6 @@ def copy_svg_slide(
 
 **返回**: 操作结果消息
 
-### 10. 从SVG创建PPTX (create_pptx_from_svg)
-
-```python
-def create_pptx_from_svg(
-    svg_paths: List[str],
-    pptx_path: str = "",
-    output_path: str = "",
-    width_inches: float = 16,
-    height_inches: float = 9,
-    x_inches: float = 0,
-    y_inches: float = 0
-) -> str
-```
-
-直接从SVG文件创建PPTX文件，每个SVG对应一页幻灯片。
-
-**参数**:
-- `svg_paths`: SVG文件路径列表
-- `pptx_path`: 初始PPTX文件路径
-- `output_path`: 输出文件路径
-- `width_inches`: 图像宽度（英寸）
-- `height_inches`: 图像高度（英寸）
-- `x_inches`: X坐标（英寸）
-- `y_inches`: Y坐标（英寸）
-
-**返回**: 操作结果消息
-
 ## 最佳实践
 
 ### 替换幻灯片内容的推荐方法
@@ -337,16 +310,6 @@ insert_svg(
 )
 ```
 
-#### 方法二：新文件法（适合多页修改）
-
-```python
-# 一次性创建包含所有SVG的新PPTX文件
-create_pptx_from_svg(
-    svg_paths=["第1页.svg", "第2页.svg", "修改后的第3页.svg", "第4页.svg"],
-    output_path="全新演示文稿.pptx"
-)
-```
-
 ## 注意事项
 
 1. **避免内容叠加**：直接对现有幻灯片插入SVG会导致新内容叠加在原内容上，而非替换
@@ -368,7 +331,7 @@ A: 这是因为每次操作都会添加时间戳。建议使用"新文件法"一
 
 ## 版本信息
 
-当前最新版本: v0.1.4
+当前最新版本: v0.1.5
 
 查看所有版本和更新信息: [GitHub Releases](https://github.com/NeekChaw/mcp-server-okppt/releases)
 
