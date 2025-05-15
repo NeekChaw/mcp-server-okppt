@@ -1,5 +1,7 @@
 # MCP OKPPT Server
 
+[切换语言 | Language: 中文 | [English](README_EN.md)]
+
 [![MCP Compatible](https://img.shields.io/badge/MCP-Compatible-blue)](https://github.com/anthropics/anthropic-tools)
 
 一个基于Model Context Protocol (MCP)的服务器工具，专门用于将SVG图像插入到PowerPoint演示文稿中。它能够保留SVG的矢量特性，确保在PowerPoint中显示的图像保持高品质和可缩放性。

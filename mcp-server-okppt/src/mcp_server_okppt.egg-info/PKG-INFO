@@ -76,7 +76,7 @@ uv pip install mcp-server-okppt
 }
 ```
 
-### 方法三：配置Cursor本地开发环境
+### 方法三：从源码安装并配置Cursor本地开发环境
 
 在Cursor IDE中，可以通过本地配置文件来设置MCP服务器：
 
@@ -92,9 +92,9 @@ uv pip install mcp-server-okppt
       "command": "uv",
       "args": [
         "--directory",
-        "D:\\本地项目路径\\mcp-server-okppt",
+        "D:\\本地项目路径\\mcp-server-okppt\\src\\mcp_server_okppt",
         "run",
-        "main.py"
+        "cli.py"
       ]
     }
   }
@@ -102,20 +102,6 @@ uv pip install mcp-server-okppt
 ```
 
 这种配置方式适合本地开发和测试使用，可以直接指向本地代码目录。
-
-### 方法四：从源代码安装
-
-```bash
-# 克隆仓库
-git clone https://github.com/NeekChaw/mcp-server-okppt.git
-cd mcp-server-okppt
-
-# 安装依赖
-pip install -r requirements.txt
-
-# 启动MCP服务器
-python main.py
-```
 
 ## 使用方法
 
