@@ -1125,449 +1125,50 @@ def copy_svg_slide(
         error_trace = traceback.format_exc()
         return f"复制SVG幻灯片时发生错误: {str(e)}\n\n详细堆栈跟踪：\n{error_trace}"
 
-@mcp.tool()
-def create_pptx_from_svg(
-    svg_paths: List[str],
-    pptx_path: str = "",
-    output_path: str = "",
-    width_inches: float = 16,
-    height_inches: float = 9,
-    x_inches: float = 0,
-    y_inches: float = 0
-) -> str:
+@mcp.prompt(name="svgMaster", description="使用SVG设计宗师角色提示，当用户希望大模型生成、优化ppt时，使用此角色提示")  
+def svg_prompt(source: str) -> list:  
     """
-    直接从SVG文件创建PPTX文件，每个SVG对应一页幻灯片。
-    这个函数避免了复制幻灯片过程中可能出现的SVG丢失问题。
-    
-    Args:
-        svg_paths: SVG文件路径列表，每个SVG将创建一页幻灯片
-        pptx_path: 可选的初始PPTX文件路径，如果不提供则创建新文件
-        output_path: 输出文件路径，如果不提供则使用自动生成的路径
-        width_inches: SVG图像宽度（英寸），默认覆盖整个幻灯片宽度
-        height_inches: SVG图像高度（英寸），默认覆盖整个幻灯片高度
-        x_inches: SVG图像X坐标（英寸），默认为0
-        y_inches: SVG图像Y坐标（英寸），默认为0
-        
-    Returns:
-        操作结果消息
-    """
-    from pptx import Presentation
-    from pptx.util import Inches
-    import datetime
-    import tempfile
-    import os
-    import shutil
-    import zipfile
-    import re
-    from lxml import etree
-    from reportlab.graphics import renderPM
-    from svglib.svglib import svg2rlg
-    import uuid
-    # 验证输入
-    if not svg_paths:
-        return "错误：未提供SVG文件路径"
-    
-    # 检查SVG文件是否存在
-    for svg_path in svg_paths:
-        if not os.path.exists(svg_path):
-            return f"错误：SVG文件不存在: {svg_path}"
-    
-    # 创建初始PPTX文件或使用提供的文件
-    if pptx_path and os.path.exists(pptx_path):
-        # 使用现有PPTX文件
-        temp_pptx = tempfile.NamedTemporaryFile(suffix='.pptx', delete=False).name
-        shutil.copy2(pptx_path, temp_pptx)
-    else:
-        # 创建新的PPTX文件
-        temp_pptx = tempfile.NamedTemporaryFile(suffix='.pptx', delete=False).name
-        prs = Presentation()
-        prs.slide_width = Inches(width_inches)
-        prs.slide_height = Inches(height_inches)
-        prs.save(temp_pptx)
-    
-    # 创建临时目录
-    temp_dir = tempfile.mkdtemp()
-    extract_dir = os.path.join(temp_dir, "extract")
-    os.makedirs(extract_dir, exist_ok=True)
-    
-    try:
-        # 解压PPTX文件
-        with zipfile.ZipFile(temp_pptx, 'r') as zip_ref:
-            zip_ref.extractall(extract_dir)
-        
-        # 命名空间定义
-        ns = {
-            'p': "http://schemas.openxmlformats.org/presentationml/2006/main",
-            'a': "http://schemas.openxmlformats.org/drawingml/2006/main",
-            'r': "http://schemas.openxmlformats.org/officeDocument/2006/relationships",
-            'asvg': "http://schemas.microsoft.com/office/drawing/2016/SVG/main"
-        }
-        
-        # 确保媒体目录存在
-        media_dir = os.path.join(extract_dir, "ppt", "media")
-        os.makedirs(media_dir, exist_ok=True)
-        
-        # 确保幻灯片目录存在
-        slides_dir = os.path.join(extract_dir, "ppt", "slides")
-        os.makedirs(slides_dir, exist_ok=True)
-        
-        # 确保关系目录存在
-        rels_dir = os.path.join(slides_dir, "_rels")
-        os.makedirs(rels_dir, exist_ok=True)
-        
-        # 处理每个SVG文件
-        for i, svg_path in enumerate(svg_paths):
-            slide_number = i + 1
-            
-            # 复制SVG到媒体目录并创建PNG备份
-            svg_filename = f"image_{uuid.uuid4().hex}.svg"
-            svg_target_path = os.path.join(media_dir, svg_filename)
-            shutil.copy2(svg_path, svg_target_path)
-            
-            # 转换SVG为PNG备份
-            png_filename = f"{os.path.splitext(svg_filename)[0]}.png"
-            png_target_path = os.path.join(media_dir, png_filename)
-            try:
-                drawing = svg2rlg(svg_path)
-                renderPM.drawToFile(drawing, png_target_path, fmt="PNG")
-            except Exception as e:
-                return f"转换SVG到PNG时出错：{str(e)}"
-            
-            # 创建或修改幻灯片文件
-            slide_path = os.path.join(slides_dir, f"slide{slide_number}.xml")
-            rels_path = os.path.join(rels_dir, f"slide{slide_number}.xml.rels")
-            
-            # 创建空白幻灯片
-            if not os.path.exists(slide_path):
-                # 创建基本的幻灯片XML
-                slide_content = f'''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<p:sld xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main">
-  <p:cSld>
-    <p:spTree>
-      <p:nvGrpSpPr>
-        <p:cNvPr id="1" name=""/>
-        <p:cNvGrpSpPr/>
-        <p:nvPr/>
-      </p:nvGrpSpPr>
-      <p:grpSpPr>
-        <a:xfrm>
-          <a:off x="0" y="0"/>
-          <a:ext cx="0" cy="0"/>
-          <a:chOff x="0" y="0"/>
-          <a:chExt cx="0" cy="0"/>
-        </a:xfrm>
-      </p:grpSpPr>
-    </p:spTree>
-  </p:cSld>
-  <p:clrMapOvr>
-    <a:masterClrMapping/>
-  </p:clrMapOvr>
-</p:sld>'''
-                
-                with open(slide_path, 'w', encoding='utf-8') as f:
-                    f.write(slide_content)
-            
-            # 创建关系文件
-            if not os.path.exists(rels_path):
-                # 创建基本的关系XML
-                rels_content = f'''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout" Target="../slideLayouts/slideLayout7.xml"/>
-</Relationships>'''
-                
-                with open(rels_path, 'w', encoding='utf-8') as f:
-                    f.write(rels_content)
-            
-            # 修改幻灯片文件，添加SVG图像
-            parser = etree.XMLParser(remove_blank_text=True)
-            slide_tree = etree.parse(slide_path, parser)
-            slide_root = slide_tree.getroot()
-            
-            # 查找spTree
-            spTree = slide_root.find('.//p:spTree', namespaces=ns)
-            if spTree is None:
-                # 如果不存在，则创建
-                cSld = slide_root.find('p:cSld', namespaces=ns)
-                if cSld is None:
-                    cSld = etree.SubElement(slide_root, etree.QName(ns['p'], 'cSld'))
-                spTree = etree.SubElement(cSld, etree.QName(ns['p'], 'spTree'))
-                
-                # 添加基本结构
-                nvGrpSpPr = etree.SubElement(spTree, etree.QName(ns['p'], 'nvGrpSpPr'))
-                etree.SubElement(nvGrpSpPr, etree.QName(ns['p'], 'cNvPr'), id="1", name="")
-                etree.SubElement(nvGrpSpPr, etree.QName(ns['p'], 'cNvGrpSpPr'))
-                etree.SubElement(nvGrpSpPr, etree.QName(ns['p'], 'nvPr'))
-                
-                grpSpPr = etree.SubElement(spTree, etree.QName(ns['p'], 'grpSpPr'))
-                xfrm = etree.SubElement(grpSpPr, etree.QName(ns['a'], 'xfrm'))
-                etree.SubElement(xfrm, etree.QName(ns['a'], 'off'), x="0", y="0")
-                etree.SubElement(xfrm, etree.QName(ns['a'], 'ext'), cx="0", cy="0")
-                etree.SubElement(xfrm, etree.QName(ns['a'], 'chOff'), x="0", y="0")
-                etree.SubElement(xfrm, etree.QName(ns['a'], 'chExt'), cx="0", cy="0")
-            
-            # 修改关系文件，添加SVG和PNG引用
-            rels_tree = etree.parse(rels_path, parser)
-            rels_root = rels_tree.getroot()
-            
-            # 查找最大的rId
-            max_rid_num = 0
-            for rel in rels_root.findall("{http://schemas.openxmlformats.org/package/2006/relationships}Relationship"):
-                rid = rel.get('Id')
-                if rid and rid.startswith('rId'):
-                    try:
-                        num = int(rid[3:])
-                        if num > max_rid_num:
-                            max_rid_num = num
-                    except ValueError:
-                        continue
-            
-            # 生成新的rId
-            rid_num_svg = max_rid_num + 1
-            rid_num_png = max_rid_num + 2
-            rId_svg = f"rId{rid_num_svg}"
-            rId_png = f"rId{rid_num_png}"
-            
-            # 添加SVG和PNG关系
-            svg_rel = etree.SubElement(
-                rels_root, 
-                "{http://schemas.openxmlformats.org/package/2006/relationships}Relationship",
-                Id=rId_svg,
-                Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image",
-                Target=f"../media/{svg_filename}"
-            )
-            
-            png_rel = etree.SubElement(
-                rels_root, 
-                "{http://schemas.openxmlformats.org/package/2006/relationships}Relationship",
-                Id=rId_png,
-                Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image",
-                Target=f"../media/{png_filename}"
-            )
-            
-            # 保存关系文件
-            rels_tree.write(rels_path, xml_declaration=True, encoding='UTF-8', standalone="yes")
-            
-            # 添加图片到幻灯片
-            # 查找最大shape ID
-            max_shape_id = 0
-            for elem in slide_root.xpath('.//p:cNvPr[@id]', namespaces=ns):
-                try:
-                    shape_id_val = int(elem.get('id'))
-                    if shape_id_val > max_shape_id:
-                        max_shape_id = shape_id_val
-                except (ValueError, TypeError):
-                    continue
-            
-            shape_id = max(max_shape_id + 1, 2)  # 确保ID至少为2
-            
-            # 创建pic元素
-            pic = etree.Element(etree.QName(ns['p'], 'pic'))
-            
-            # 添加nvPicPr元素
-            nvPicPr = etree.SubElement(pic, etree.QName(ns['p'], 'nvPicPr'))
-            cNvPr = etree.SubElement(nvPicPr, etree.QName(ns['p'], 'cNvPr'), id=str(shape_id), name=f"SVG Picture {shape_id}")
-            cNvPicPr = etree.SubElement(nvPicPr, etree.QName(ns['p'], 'cNvPicPr'))
-            etree.SubElement(cNvPicPr, etree.QName(ns['a'], 'picLocks'), noChangeAspect="1")
-            etree.SubElement(nvPicPr, etree.QName(ns['p'], 'nvPr'))
-            
-            # 添加blipFill元素
-            blipFill = etree.SubElement(pic, etree.QName(ns['p'], 'blipFill'))
-            blip = etree.SubElement(blipFill, etree.QName(ns['a'], 'blip'), {etree.QName(ns['r'], 'embed'): rId_png})
-            
-            # 添加SVG引用
-            extLst = etree.SubElement(blip, etree.QName(ns['a'], 'extLst'))
-            ext = etree.SubElement(extLst, etree.QName(ns['a'], 'ext'), uri="{96DAC541-7B7A-43D3-8B79-37D633B846F1}")
-            
-            # 注册SVG命名空间
-            etree.register_namespace('asvg', "http://schemas.microsoft.com/office/drawing/2016/SVG/main")
-            svgBlip = etree.SubElement(ext, etree.QName(ns['asvg'], 'svgBlip'), {etree.QName(ns['r'], 'embed'): rId_svg})
-            
-            # 添加stretch元素
-            stretch = etree.SubElement(blipFill, etree.QName(ns['a'], 'stretch'))
-            etree.SubElement(stretch, etree.QName(ns['a'], 'fillRect'))
-            
-            # 添加spPr元素
-            spPr = etree.SubElement(pic, etree.QName(ns['p'], 'spPr'))
-            xfrm = etree.SubElement(spPr, etree.QName(ns['a'], 'xfrm'))
-            etree.SubElement(xfrm, etree.QName(ns['a'], 'off'), x=str(int(Inches(x_inches))), y=str(int(Inches(y_inches))))
-            etree.SubElement(xfrm, etree.QName(ns['a'], 'ext'), cx=str(int(Inches(width_inches))), cy=str(int(Inches(height_inches))))
-            prstGeom = etree.SubElement(spPr, etree.QName(ns['a'], 'prstGeom'), prst="rect")
-            etree.SubElement(prstGeom, etree.QName(ns['a'], 'avLst'))
-            
-            # 将pic添加到spTree
-            spTree.append(pic)
-            
-            # 保存修改后的幻灯片
-            slide_tree.write(slide_path, xml_declaration=True, encoding='UTF-8', standalone="yes")
-        
-        # 修改[Content_Types].xml以支持SVG
-        content_types_path = os.path.join(extract_dir, "[Content_Types].xml")
-        if os.path.exists(content_types_path):
-            parser = etree.XMLParser(remove_blank_text=True)
-            content_types_tree = etree.parse(content_types_path, parser)
-            content_types_root = content_types_tree.getroot()
-            
-            # 检查是否已存在SVG和PNG MIME类型
-            svg_exists = False
-            png_exists = False
-            
-            for default in content_types_root.findall("{http://schemas.openxmlformats.org/package/2006/content-types}Default"):
-                if default.get("Extension") == "svg":
-                    svg_exists = True
-                elif default.get("Extension") == "png":
-                    png_exists = True
-            
-            # 添加SVG MIME类型
-            if not svg_exists:
-                print("Info: Adding SVG Content Type to [Content_Types].xml")
-                etree.SubElement(
-                    content_types_root,
-                    "{http://schemas.openxmlformats.org/package/2006/content-types}Default",
-                    Extension="svg",
-                    ContentType="image/svg+xml"
-                )
-            
-            # 添加PNG MIME类型
-            if not png_exists:
-                print("Info: Adding PNG Content Type to [Content_Types].xml")
-                etree.SubElement(
-                    content_types_root,
-                    "{http://schemas.openxmlformats.org/package/2006/content-types}Default",
-                    Extension="png",
-                    ContentType="image/png"
-                )
-            
-            # 确保有slide覆盖类型
-            slide_override_exists = False
-            for override in content_types_root.findall("{http://schemas.openxmlformats.org/package/2006/content-types}Override"):
-                if "slides/slide" in override.get("PartName", "") and override.get("ContentType") == "application/vnd.openxmlformats-officedocument.presentationml.slide+xml":
-                    slide_override_exists = True
-                    break
-            
-            # 如果没有slide覆盖类型，为每个幻灯片添加
-            if not slide_override_exists:
-                for i in range(1, len(svg_paths) + 1):
-                    etree.SubElement(
-                        content_types_root,
-                        "{http://schemas.openxmlformats.org/package/2006/content-types}Override",
-                        PartName=f"/ppt/slides/slide{i}.xml",
-                        ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"
-                    )
-            
-            # 保存修改后的Content_Types.xml
-            content_types_tree.write(content_types_path, xml_declaration=True, encoding='UTF-8', standalone="yes")
-        
-        # 修改presentation.xml和presentation.xml.rels
-        pres_path = os.path.join(extract_dir, "ppt", "presentation.xml")
-        pres_rels_path = os.path.join(extract_dir, "ppt", "_rels", "presentation.xml.rels")
-        
-        if os.path.exists(pres_path) and os.path.exists(pres_rels_path):
-            # 修改presentation.xml
-            pres_tree = etree.parse(pres_path, parser)
-            pres_root = pres_tree.getroot()
-            
-            # 找到sldIdLst元素
-            sldIdLst = pres_root.find('.//p:sldIdLst', namespaces=ns)
-            if sldIdLst is None:
-                # 如果不存在，创建一个
-                elems = pres_root.findall('./*')
-                if len(elems) > 0:
-                    # 在第一个子元素后插入
-                    sldIdLst = etree.Element(etree.QName(ns['p'], 'sldIdLst'))
-                    elems[0].addnext(sldIdLst)
-                else:
-                    # 如果没有子元素，直接添加
-                    sldIdLst = etree.SubElement(pres_root, etree.QName(ns['p'], 'sldIdLst'))
-            
-            # 清除现有的slide引用
-            for sldId in sldIdLst.findall('.//p:sldId', namespaces=ns):
-                sldIdLst.remove(sldId)
-            
-            # 修改presentation.xml.rels
-            pres_rels_tree = etree.parse(pres_rels_path, parser)
-            pres_rels_root = pres_rels_tree.getroot()
-            
-            # 找到并删除所有指向幻灯片的关系
-            for rel in pres_rels_root.findall(".//Relationship[@Type='http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide']", namespaces=ns):
-                pres_rels_root.remove(rel)
-            
-            # 查找最大的rId
-            max_pres_rid = 0
-            for rel in pres_rels_root.findall("{http://schemas.openxmlformats.org/package/2006/relationships}Relationship"):
-                rid = rel.get('Id')
-                if rid and rid.startswith('rId'):
-                    try:
-                        num = int(rid[3:])
-                        if num > max_pres_rid:
-                            max_pres_rid = num
-                    except ValueError:
-                        continue
-            
-            # 为每个幻灯片添加引用
-            next_id = 256  # 从256开始是PowerPoint的惯例
-            for i in range(1, len(svg_paths) + 1):
-                # 添加到presentation.xml.rels
-                new_rid = f"rId{max_pres_rid + i}"
-                etree.SubElement(
-                    pres_rels_root,
-                    "{http://schemas.openxmlformats.org/package/2006/relationships}Relationship",
-                    Id=new_rid,
-                    Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide",
-                    Target=f"slides/slide{i}.xml"
-                )
-                
-                # 添加到presentation.xml的sldIdLst
-                etree.SubElement(
-                    sldIdLst,
-                    etree.QName(ns['p'], 'sldId'),
-                    id=str(next_id + i - 1),
-                    **{etree.QName(ns['r'], 'id'): new_rid}
-                )
-            
-            # 保存修改
-            pres_tree.write(pres_path, xml_declaration=True, encoding='UTF-8', standalone="yes")
-            pres_rels_tree.write(pres_rels_path, xml_declaration=True, encoding='UTF-8', standalone="yes")
-        
-        # 重新打包PPTX
-        if output_path is None:
-            # 从SVG文件名生成输出文件名
-            base_name = os.path.splitext(os.path.basename(svg_paths[0]))[0]
-            base_name = re.sub(r'[^\w\-_\.]', '_', base_name)  # 替换非法字符
-            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-            output_path = os.path.join(get_output_dir(), f"{base_name}_pptx_{timestamp}.pptx")
-        
-        if os.path.exists(output_path):
-            os.remove(output_path)
-        
-        with zipfile.ZipFile(output_path, 'w', compression=zipfile.ZIP_DEFLATED) as zipf:
-            for root, _, files in os.walk(extract_dir):
-                for file in files:
-                    file_path = os.path.join(root, file)
-                    arcname = os.path.relpath(file_path, extract_dir)
-                    zipf.write(file_path, arcname)
-        
-        # 返回成功消息
-        return f"成功创建PPTX文件，包含{len(svg_paths)}张幻灯片，已保存到：{output_path}"
-    
-    except Exception as e:
-        # 清理临时目录
-        if 'temp_dir' in locals() and os.path.exists(temp_dir):
-            shutil.rmtree(temp_dir)
-            
-        error_trace = traceback.format_exc()
-        return f"创建PPTX文件失败：{str(e)}\n\n{error_trace}"
-
-@mcp.prompt()
-def use_role_prompt(source: str) -> str:
-    """
-    使用角色提示。
-    主要用途：当用户希望大模型生成、优化ppt时，使用角色提示，让大模型生成16:9的svg代码，然后使用server-okppt的insert_svg工具将svg代码全屏插入ppt。
+    使用SVG设计宗师角色提示，并将用户具体需求嵌入其中。
+    主要用途：当用户希望大模型生成、优化ppt时，使用此角色提示，
+              引导大模型基于用户需求生成16:9的SVG代码。
+              后续流程可调用server-okppt的insert_svg工具将svg代码全屏插入ppt。
     输入：
-        source: str, 用户希望大模型生成的ppt的结构。
+        source: str, 用户希望大模型生成的ppt的结构、内容或主题。
     输出：
-        str, 架构化提示词。
+        str, 包含用户具体需求的、完整的“SVG设计宗师”架构化提示词。
     """
-    return f"请你分析、解构用户的ppt需求：{source}，如果需求不明确，你需要与用户逐步明确ppt风格、主题等设计细节，然后然后调用mcp_server_okppt工具为用户生成svg代码，最终将svg代码全屏插入ppt，实现ppt设计。"
+    prompt_template_path = os.path.join(os.path.dirname(__file__), "prompts", "prompt_svg2ppt.md")
+
+    try:
+        with open(prompt_template_path, "r", encoding="utf-8") as f:
+            prompt_template = f.read()
+    except FileNotFoundError:
+        return f"请分析用户需求：{source}，并生成SVG代码。"
+
+    user_demand_snippet = f"""## 0. 当前核心设计任务 (User's Core Design Task)
+
+用户提供的核心需求如下：
+
+```text
+{source}
+```
+
+请 SVG 设计宗师基于以上用户需求，并严格遵循后续的完整 Prompt 框架（角色定位、设计原则、内容理解、决策框架等）进行分析、设计并生成最终的SVG代码。
+在开始具体设计前，请先在“阶段一：深度聆听与精准解构”中，确认你对以上核心设计任务的理解。
+"""
+
+    # 使用占位符替换用户需求
+    if "%%%USER_CORE_DESIGN_TASK_HERE%%%" in prompt_template:
+        final_prompt = prompt_template.replace("%%%USER_CORE_DESIGN_TASK_HERE%%%", user_demand_snippet)
+    else:
+        # 如果模板中没有找到占位符，作为备选方案，仍在最前面添加
+        # 或者可以返回一个错误/警告，表明模板可能已损坏或不是预期版本
+        print(f"警告：占位符 '%%%USER_CORE_DESIGN_TASK_HERE%%%' 未在模板 '{prompt_template_path}' 中找到。用户需求将添加到Prompt开头。")
+        final_prompt = f"{prompt_template}\n\n用户的需求是：{user_demand_snippet}"
+    
+    return [  
+        {"role": "assistant", "content": {"type": "text", "text": final_prompt}}  
+    ]  
 
 # 启动服务器
 if __name__ == "__main__":
