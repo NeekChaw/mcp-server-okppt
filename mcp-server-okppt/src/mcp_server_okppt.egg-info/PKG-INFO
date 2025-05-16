@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mcp-server-okppt
-Version: 0.1.6
+Version: 0.1.7
 Summary: A Python package to insert SVG images into PowerPoint presentations, with MCP server capabilities.
 Author-email: NeekChaw <your.email@example.com>
 Project-URL: Homepage, https://github.com/NeekChaw/mcp-server-okppt
@@ -349,7 +349,7 @@ A: 这是因为每次操作都会添加时间戳。建议使用"新文件法"一
 
 ## 版本信息
 
-当前最新版本: v0.1.6
+当前最新版本: v0.1.7
 
 查看所有版本和更新信息: [GitHub Releases](https://github.com/NeekChaw/mcp-server-okppt/releases)
 
