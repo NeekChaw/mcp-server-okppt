@@ -1125,17 +1125,17 @@ def copy_svg_slide(
         error_trace = traceback.format_exc()
         return f"复制SVG幻灯片时发生错误: {str(e)}\n\n详细堆栈跟踪：\n{error_trace}"
 
-@mcp.prompt(name="svgMaster", description="使用SVG设计宗师角色提示，当用户希望大模型生成、优化ppt时，使用此角色提示")  
-def svg_prompt(source: str) -> list:  
+@mcp.tool(description="使用SVG设计宗师角色提示，当用户希望大模型生成或优化ppt时，使用此角色提示")  
+def svg_prompt(source: str) -> str:  
     """
     使用SVG设计宗师角色提示，并将用户具体需求嵌入其中。
     主要用途：当用户希望大模型生成、优化ppt时，使用此角色提示，
-              引导大模型基于用户需求生成16:9的SVG代码。
-              后续流程可调用server-okppt的insert_svg工具将svg代码全屏插入ppt。
+              引导大模型基于用户需求生成16:9的高质量SVG代码。
+              后续流程可调用server-okppt的insert_svg工具将svg代码全屏插入ppt，达到设计ppt的效果。
     输入：
-        source: str, 用户希望大模型生成的ppt的结构、内容或主题。
+        source: str, 用户希望大模型生成的ppt的结构、内容或主题等相关需求。
     输出：
-        str, 包含用户具体需求的、完整的“SVG设计宗师”架构化提示词。
+        str, 包含用户具体需求的、完整的“SVG设计宗师”架构化提示词，大模型可直接使用该提示词生成高质量svg代码。
     """
     prompt_template_path = os.path.join(os.path.dirname(__file__), "prompts", "prompt_svg2ppt.md")
 
@@ -1166,9 +1166,7 @@ def svg_prompt(source: str) -> list:
         print(f"警告：占位符 '%%%USER_CORE_DESIGN_TASK_HERE%%%' 未在模板 '{prompt_template_path}' 中找到。用户需求将添加到Prompt开头。")
         final_prompt = f"{prompt_template}\n\n用户的需求是：{user_demand_snippet}"
     
-    return [  
-        {"role": "assistant", "content": {"type": "text", "text": final_prompt}}  
-    ]  
+    return final_prompt
 
 # 启动服务器
 if __name__ == "__main__":
