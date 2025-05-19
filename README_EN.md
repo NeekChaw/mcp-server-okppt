@@ -333,7 +333,7 @@ A: This happens because each operation adds a timestamp. We recommend using the 
 
 ## Version Information
 
-Current latest version: v0.1.8
+Current latest version: v0.1.9
 
 View all versions and update information: [GitHub Releases](https://github.com/NeekChaw/mcp-server-okppt/releases)
 
