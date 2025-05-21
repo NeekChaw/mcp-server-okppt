@@ -514,7 +514,7 @@ def process_single_svg(
 def list_files(directory: str = ".", file_type: Optional[str] = None) -> str:
     """
     列出目录中的文件，可选按文件类型过滤。
-    
+    如需查看svg文件是否正确保存，请输入svg文件的保存路径。
     Args:
         directory: 要列出文件的目录路径
         file_type: 文件类型过滤，可以是 "svg" 或 "pptx"

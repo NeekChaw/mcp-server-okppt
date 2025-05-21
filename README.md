@@ -24,6 +24,16 @@
 - **SVG代码处理**: 支持直接从SVG代码创建文件
 - **格式转换支持**: 内置SVG到PNG的转换功能
 
+## PPT效果示例
+
+以下是一些使用MCP OKPPT Server生成的PPT效果图：
+
+![2008年金融危机](example/Financial_Crisis_2008.png)
+*2008年金融危机分析PPT封面*
+
+![小红书爆款指南](example/小红书如何写出爆款.png)
+*小红书爆款内容分析报告PPT页面*
+
 ## 安装方法
 
 ### 方法一：从PyPI安装

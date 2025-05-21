@@ -26,6 +26,16 @@ This innovative approach uses SVG as a bridge between AI and PPT, guaranteeing b
 - **SVG Code Handling**: Supports direct creation of files from SVG code
 - **Format Conversion**: Built-in SVG to PNG conversion functionality
 
+## PPT Examples Showcase
+
+Here are some examples of PPT slides generated using MCP OKPPT Server:
+
+![2008 Financial Crisis](example/Financial_Crisis_2008.png)
+*Cover slide for a presentation on the 2008 Financial Crisis*
+
+![Xiaohongshu Guide](example/小红书如何写出爆款.png)
+*Slide from a report on creating popular content on Xiaohongshu*
+
 ## Installation
 
 ### Method 1: Install from PyPI
