@@ -4,6 +4,7 @@ pyproject.toml
 src/mcp_server_okppt/__init__.py
 src/mcp_server_okppt/__main__.py
 src/mcp_server_okppt/cli.py
+src/mcp_server_okppt/ppt_operations.py
 src/mcp_server_okppt/server.py
 src/mcp_server_okppt/svg_module.py
 src/mcp_server_okppt.egg-info/PKG-INFO

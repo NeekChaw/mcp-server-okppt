@@ -5,9 +5,25 @@ import os
 import datetime
 import traceback
 import re
-
+import json
+import logging
+import sys
 from mcp_server_okppt.svg_module import insert_svg_to_pptx, create_svg_file, get_pptx_slide_count, save_svg_code_to_file
+# New import for our PPT operations
+from mcp_server_okppt.ppt_operations import (
+    analyze_layout_details,
+    insert_layout,
+    clear_placeholder_content,
+    assign_placeholder_content
+)
 
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    stream=sys.stdout
+)
+logger = logging.getLogger(__name__)
 # 创建MCP服务器实例
 mcp = FastMCP(name="main")
 PROMPT_TEMPLATE_CONTENT = """
@@ -1305,12 +1321,14 @@ def copy_svg_slide(
         error_trace = traceback.format_exc()
         return f"复制SVG幻灯片时发生错误: {str(e)}\n\n详细堆栈跟踪：\n{error_trace}"
 
-@mcp.tool(description="使用SVG设计宗师角色提示，当用户希望大模型生成或优化ppt时，使用此角色提示")  
+@mcp.tool(description="使用SVG设计宗师角色提示，当用户希望大模型生成或优化ppt时，使用此prompt对用户需求进行细化")  
 def svg_prompt(source: str) -> str:  
     """
     使用SVG设计宗师角色提示，并将用户具体需求嵌入其中。
-    主要用途：当用户希望大模型生成、优化ppt时，使用此角色提示，
-              引导大模型基于用户需求生成16:9的高质量SVG代码。
+    主要用途：当用户希望大模型生成、优化ppt时，使用此prompt对用户需求进行细化。
+            该工具会返回优化后的需求prompt，你需要认真阅读该函数返回的str，将其作为你的设计理念，而不是仅作为一个普通的输出结果。
+            结合优化后的需求自主判断调用什么工具来满足用户生成ppt的需求。
+            例如你可以：
               1、生成svg代码后[自动调用]okppt工具的save_svg方法将svg代码保存到本地，
               2、然后调用okppt的insert_svg工具将svg代码全屏插入ppt，达到设计ppt的效果。
     输入：
@@ -1341,6 +1359,256 @@ def svg_prompt(source: str) -> str:
         final_prompt = f"{PROMPT_TEMPLATE_CONTENT}\n\n用户的需求是：{user_demand_snippet}"
     
     return final_prompt
+
+# --- New PPT Operation Tools ---
+
+@mcp.tool(description="Analyzes the layout details of a PowerPoint presentation and returns a JSON string of the analysis.")
+def analyze_presentation_layouts(prs_path: str, title: str = "演示文稿") -> str:
+    """
+    如果用户希望使用已有模板进行幻灯片创作，首先使用此工具进行母版分析。
+    分析指定PowerPoint演示文稿的布局详细信息并以JSON字符串形式返回。
+
+    此工具旨在提供对PPTX文件内部结构的全面视图，帮助用户了解可用的母版、
+    布局及其名称、每个布局包含的占位符类型和访问ID。同时，它还统计各类布局的数量，
+    分析实际幻灯片对这些布局的使用情况，找出未被使用的布局，并计算整体的布局利用率。
+    这些信息对于后续通过编程方式精确操作或修改演示文稿至关重要。
+
+    Args:
+        prs_path (str): 需要进行分析的PowerPoint (.pptx) 文件的路径。
+                        可以是绝对路径或相对于服务工作目录的相对路径。
+        title (str, optional): 用户为本次分析任务指定的标题，此标题会包含在返回的
+                             JSON结果中，便于用户识别。默认为 "演示文稿"。
+
+    Returns:
+        str: 一个JSON格式的字符串，其中包含了对演示文稿布局的详细分析数据。
+             成功时，JSON结构将包含 "status": "success" 以及 "data" 字段中的具体分析信息，例如：
+             {
+               "status": "success",
+               "message": "Presentation analysis successful.",
+               "data": {
+                 "presentation_path": "路径/到/文件.pptx",
+                 "analysis_title": "用户指定的标题",
+                 "slide_count": 5, // 总幻灯片数
+                 "master_count": 1, // 总母版数
+                 "total_layouts_count": 8, // 总布局数
+                 "layout_type_stats": { // 各类型布局统计
+                   "自定义布局": {"count": 3, "percentage": 37.5},
+                   "系统布局": {"count": 5, "percentage": 62.5}
+                 },
+                 "masters_details": [ // 母版详情列表
+                   {
+                     "master_index": 1,
+                     "master_name": "Office 主题",
+                     "layout_count": 8,
+                     "layouts": [ // 该母版下的布局列表
+                       {
+                         "layout_index": 1,
+                         "layout_name_original": "标题幻灯片",
+                         "layout_display_name": "自定义布局 - 标题幻灯片",
+                         "layout_type": "自定义布局",
+                         "placeholder_count": 2,
+                         "placeholders": [ // 该布局下的占位符列表
+                           {"placeholder_index": 1, "type_name": "标题 (Title)", "access_id": 0, "type_code": 1}, // "access_id" 可用于其他工具如 set_placeholder_value 定位此占位符
+                           {"placeholder_index": 2, "type_name": "副标题 (Subtitle)", "access_id": 1, "type_code": 4}
+                         ]
+                       }
+                       // ...更多布局...
+                     ]
+                   }
+                 ],
+                 "slide_layout_usage_summary": { // 各布局在幻灯片中的使用次数统计
+                    "标题幻灯片": {"count": 1, "percentage": 20.0}
+                 },
+                 "slides_details": [ // 各幻灯片使用的布局信息
+                    {"slide_number": 1, "title": "幻灯片1标题", "used_layout_name_original": "标题幻灯片", ...}
+                 ],
+                 "unused_layouts_summary": [ // 未被使用的布局列表
+                    {"name": "内容与标题", "type": "自定义布局"}
+                 ],
+                 "layout_utilization": { // 整体布局利用率
+                    "total_available": 8, "used_count": 3, "utilization_rate_percentage": 37.5
+                 }
+               },
+               "output_path": null // 此操作不生成文件，故为null
+             }
+             若操作失败（例如文件不存在或文件格式错误），JSON结构将包含 "status": "error" 及错误信息:
+             {
+               "status": "error",
+               "message": "分析布局详情失败: 文件 'non_existent.pptx' 未找到.",
+               "data": { ... 可能包含部分已收集的数据 ... },
+               "output_path": null
+             }
+    """
+    logger.info(f"Executing analyze_presentation_layouts for: {prs_path} with title: {title}") # Added title to log
+    result_dict = analyze_layout_details(prs_path, title)
+    return json.dumps(result_dict, ensure_ascii=False, indent=2)
+
+@mcp.tool(description="Inserts a new slide with a specified layout into a presentation and returns a JSON string of the result.")
+def add_slide_with_layout(prs_path: str, layout_name: str, output_path: Optional[str] = None, slide_title: Optional[str] = None) -> str:
+    """
+    如果用户希望使用已有模板进行幻灯片创作，必须使用此工具。
+    在指定的PowerPoint演示文稿中根据布局名称插入一张新的幻灯片。
+
+    此函数首先会查找演示文稿中所有可用的布局，然后根据提供的 `layout_name`
+    （该名称通常通过 `analyze_presentation_layouts` 工具获取）添加新幻灯片。
+    可以选择为新幻灯片设置标题（如果所选布局包含标题占位符）。
+    操作结果（包括成功状态、消息、新幻灯片总数和输出文件路径）将以JSON字符串形式返回。
+
+    Args:
+        prs_path (str): 源PPTX文件的绝对或相对路径。
+        layout_name (str): 要使用的新幻灯片的布局名称 (例如 "标题幻灯片", "空白" 等)。
+                           建议使用 `analyze_presentation_layouts` 工具获取准确的可用布局名称。
+        output_path (Optional[str], optional): 修改后PPTX的输出文件路径。
+                                            如果为None，则会在标准输出目录下自动生成一个文件名，
+                                            格式通常为 `[原文件名]_inserted_layout_[布局名]_[时间戳].pptx`。
+                                            默认为 None。
+        slide_title (Optional[str], optional): 要赋给新幻灯片标题占位符的文本。
+                                             如果布局没有标题占位符或此参数为None，则不设置标题。
+                                             默认为 None。
+
+    Returns:
+        str: 一个JSON格式的字符串，包含了操作结果。
+             成功时结构示例:
+             {
+               "status": "success",
+               "message": "Successfully inserted slide with layout '布局名'.",
+               "data": {
+                 "slides_total": 11, // 操作后总幻灯片数
+                 "original_slide_count": 10, // 操作前幻灯片数
+                 "new_slide_title_set": "设置的标题" // 如果成功设置了标题
+               },
+               "output_path": "path/to/output_inserted_layout_布局名_timestamp.pptx"
+             }
+             失败时（例如布局未找到）结构示例:
+             {
+               "status": "error",
+               "message": "Layout '不存在的布局' not found. Available layouts: ...",
+               "data": {"available_layouts": ["布局1", "布局2"], "original_slide_count": 10},
+               "output_path": null
+             }
+             其他失败情况（例如文件读写错误）:
+             {
+               "status": "error",
+               "message": "插入布局失败: [错误描述]",
+               "data": {"original_slide_count": 10},
+               "output_path": null
+             }
+    """
+    logger.info(f"Executing add_slide_with_layout for: {prs_path}, layout: {layout_name}")
+    result_dict = insert_layout(prs_path, layout_name, output_path, slide_title)
+    return json.dumps(result_dict, ensure_ascii=False, indent=2)
+
+@mcp.tool(description="Clears content from placeholders in specified slides of a presentation and returns a JSON string of the result.")
+def clear_placeholders_from_slides(prs_path: str, output_path: Optional[str] = None, slide_indices: Optional[List[int]] = None) -> str:
+    """
+    清空指定PowerPoint演示文稿中特定或所有幻灯片内占位符的文本内容。
+
+    此函数会遍历指定（或全部）幻灯片上的所有占位符，并尝试清除其文本内容。
+    操作会保留占位符本身结构，仅移除文本。图片、表格等非文本内容不受影响。
+    函数返回一个JSON字符串，包含操作结果，如处理的幻灯片数量、清空的占位符总数等。
+
+    Args:
+        prs_path (str): 源PPTX文件的绝对或相对路径。
+        output_path (Optional[str], optional): 修改后PPTX的输出文件路径。
+                                            如果为None，则会在标准输出目录下自动生成一个文件名，
+                                            格式通常为 `[原文件名]_content_cleared_[时间戳].pptx`。
+                                            默认为 None。
+        slide_indices (Optional[List[int]], optional): 一个包含幻灯片索引（0-based）的列表，
+                                                      指定要处理哪些幻灯片。
+                                                      如果为None，则处理演示文稿中的所有幻灯片。
+                                                      默认为 None。
+
+    Returns:
+        str: 一个JSON格式的字符串，包含了操作结果。
+             成功时结构示例:
+             {
+               "status": "success",
+               "message": "Successfully cleared content from 3 placeholder(s) in 2 slide(s).",
+               "data": {
+                 "slides_processed_count": 2, // 实际处理并有内容被清空的幻灯片数量
+                 "placeholders_cleared_total": 3, // 所有被清空内容的占位符总数
+                 "slides_targetted_count": 2, // 目标处理的幻灯片数量（基于slide_indices或总数）
+                 "processed_slides_details": [ // 每个被处理幻灯片的详情
+                   {
+                     "slide_number": 1, // 幻灯片页码 (1-based)
+                     "cleared_count_on_slide": 1, // 该幻灯片上被清空的占位符数量
+                     "placeholders_status": [ // 该幻灯片上各占位符的处理状态
+                       {"access_id": 0, "type": "标题 (Title)", "cleared": true, "reason": "text_frame cleared"},
+                       {"access_id": 1, "type": "正文/内容 (Body)", "cleared": false, "reason": "no text content or not clearable type"}
+                     ]
+                   }
+                 ]
+               },
+               "output_path": "path/to/output_content_cleared_timestamp.pptx"
+             }
+             失败时（例如文件处理错误）结构示例:
+             {
+               "status": "error",
+               "message": "清空占位符内容失败: [错误描述]",
+               "data": {"placeholders_cleared_total": 0, "slides_processed_count": 0},
+               "output_path": null
+             }
+    """
+    logger.info(f"Executing clear_placeholders_from_slides for: {prs_path}, slide_indices: {slide_indices}")
+    result_dict = clear_placeholder_content(prs_path, output_path, slide_indices)
+    return json.dumps(result_dict, ensure_ascii=False, indent=2)
+
+@mcp.tool(description="Assigns content to a specific placeholder on a specific slide and returns a JSON string of the result.")
+def set_placeholder_value(prs_path: str, slide_idx: int, placeholder_id: int, content_to_set: str, output_path: Optional[str] = None) -> str:
+    """
+    给指定PowerPoint演示文稿中特定幻灯片的特定占位符赋予文本内容。
+
+    此函数通过幻灯片索引 (0-based) 和占位符的访问ID (placeholder_format.idx)
+    来定位目标占位符，并将其文本内容设置为用户提供的 `content_to_set`。
+    主要适用于文本类型的占位符（如标题、正文、副标题等）。
+    操作结果以JSON字符串形式返回。
+
+    Args:
+        prs_path (str): 源PPTX文件的绝对或相对路径。
+        slide_idx (int): 要修改的幻灯片的索引 (0-based)。
+        placeholder_id (int): 要赋值的目标占位符的访问ID。这个ID即为占位符在其母版布局中定义的唯一 `idx` 值 
+                              (即 `placeholder_format.idx` 属性值)。
+                              **强烈建议通过先调用 `analyze_presentation_layouts` 工具来获取指定幻灯片上确切可用的占位符
+                              及其对应的 `access_id`**（在 `analyze_presentation_layouts` 返回结果的 `data.masters_details.layouts.placeholders.access_id` 
+                              或 `data.slides_details.placeholders_on_slide.access_id` 路径下可以找到，尽管后者需要先通过分析工具获取幻灯片上实际有哪些占位符），以确保操作的准确性。
+        content_to_set (str): 要赋给占位符的文本内容。
+        output_path (Optional[str], optional): 修改后PPTX的输出文件路径。
+                                            如果为None，则会在标准输出目录下自动生成一个文件名，
+                                            格式通常为 `[原文件名]_assigned_S[slide_idx]_P[placeholder_id]_[时间戳].pptx`。
+                                            默认为 None。
+
+    Returns:
+        str: 一个JSON格式的字符串，包含了操作结果。
+             成功时结构示例:
+             {
+               "status": "success",
+               "message": "Successfully assigned content to placeholder ID 0 on slide 1.",
+               "data": {
+                 "slide_index": 0, // 目标幻灯片索引 (0-based)
+                 "placeholder_access_id": 0, // 目标占位符访问ID
+                 "content_assigned_length": 15, // 赋值内容的长度
+                 "assignment_method": "text_frame" // 使用的赋值方法
+               },
+               "output_path": "path/to/output_assigned_S0_P0_timestamp.pptx"
+             }
+             失败时（例如索引超范围、占位符未找到、占位符不支持文本赋值）结构示例:
+             {
+               "status": "error",
+               "message": "在幻灯片 0 上未找到访问ID为 99 的占位符。",
+               "data": {"available_placeholders": [{"access_id": 0, "type": "标题 (Title)"}, ...]}, // 可能包含可用占位符信息
+               "output_path": null
+             }
+             其他失败情况（例如文件读写错误）:
+             {
+               "status": "error",
+               "message": "给占位符赋值时发生严重错误: [错误描述]",
+               "data": null,
+               "output_path": null
+             }
+    """
+    logger.info(f"Executing set_placeholder_value for: {prs_path}, slide: {slide_idx}, placeholder: {placeholder_id}")
+    result_dict = assign_placeholder_content(prs_path, slide_idx, placeholder_id, content_to_set, output_path)
+    return json.dumps(result_dict, ensure_ascii=False, indent=2)
 
 # 启动服务器
 if __name__ == "__main__":
